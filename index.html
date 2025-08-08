@@ -1,44 +1,42 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Map hóa đơn điện → Mẫu Excel</title>
-  <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:1100px;margin:20px auto;padding:0 16px}
-    header{margin-bottom:16px}
-    h1{font-size:22px;margin:0 0 8px}
-    .card{border:1px solid #e5e7eb;border-radius:16px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,0.04);margin-bottom:16px}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-    label{font-weight:600;display:block;margin-bottom:6px}
-    input[type=file]{display:block}
-    .row{display:grid;grid-template-columns:220px 1fr;gap:12px;align-items:center;margin:6px 0}
-    .btn{display:inline-block;padding:10px 14px;border-radius:12px;border:1px solid #111;background:#111;color:#fff;cursor:pointer}
-    .btn.secondary{background:#fff;color:#111}
-    .muted{color:#6b7280}.small{font-size:12px}.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
-    pre{background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:10px;white-space:pre-wrap}
-  </style>
-  <!-- PDF.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-  <script>pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';</script>
-  <!-- SheetJS -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Đọc hóa đơn EVN → Excel (không cần mẫu)</title>
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:1100px;margin:20px auto;padding:0 16px}
+  header{margin-bottom:16px} h1{font-size:22px;margin:0 0 8px}
+  .card{border:1px solid #e5e7eb;border-radius:16px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,0.04);margin-bottom:16px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  label{font-weight:600;display:block;margin-bottom:6px}
+  input[type=file]{display:block}
+  .row{display:grid;grid-template-columns:220px 1fr;gap:12px;align-items:center;margin:6px 0}
+  .btn{display:inline-block;padding:10px 14px;border-radius:12px;border:1px solid #111;background:#111;color:#fff;cursor:pointer}
+  .btn.secondary{background:#fff;color:#111}
+  .muted{color:#6b7280}.small{font-size:12px}.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+  pre{background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:10px;white-space:pre-wrap}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script>pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';</script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 <header>
-  <h1>Nhập liệu hóa đơn điện → Excel (client-side)</h1>
-  <div class="muted small">Tải hóa đơn PDF EVN và file mẫu <span class="mono">Mau_TH.xlsx</span>, hệ thống sẽ thêm 1 dòng vào sheet <span class="mono">import</span>.</div>
+  <h1>Nhập liệu hóa đơn EVN → Excel (client-side, không cần mẫu)</h1>
+  <div class="muted small">Chọn nhiều PDF hóa đơn EVN. Hệ thống tự tạo Excel đúng cấu trúc (sheet <span class="mono">import</span>) hoặc nối vào file mẫu nếu bạn tải thêm.</div>
 </header>
 
 <section class="card">
   <div class="grid">
     <div>
-      <label>1) Hóa đơn PDF</label>
-      <input id="pdfFile" type="file" accept="application/pdf" />
+      <label>1) Chọn hóa đơn PDF (có thể chọn nhiều)</label>
+      <input id="pdfFiles" type="file" accept="application/pdf" multiple />
     </div>
     <div>
-      <label>2) File mẫu Excel</label>
+      <label>2) (Tuỳ chọn) Nạp file Excel mẫu để nối thêm</label>
       <input id="xlsxFile" type="file" accept=".xlsx,.xls" />
+      <div class="small muted">Nếu không chọn, hệ thống sẽ tự tạo file Excel chuẩn.</div>
     </div>
   </div>
   <div class="row">
@@ -56,13 +54,13 @@
 </section>
 
 <section class="card">
-  <h2 style="font-size:18px;margin-top:0">Kết quả / Header sheet</h2>
+  <h2 style="font-size:18px;margin-top:0">Kết quả trích xuất</h2>
   <pre id="results" class="small mono muted">Chưa có dữ liệu…</pre>
 </section>
 
 <section class="card">
   <h2 style="font-size:18px;margin-top:0">Tải file Excel đã điền</h2>
-  <div class="small muted">Giữ nguyên tiêu đề sheet <span class="mono">import</span>, chỉ <b>append</b> 1 dòng đúng thứ tự cột.</div>
+  <div class="small muted">Giữ nguyên tiêu đề sheet <span class="mono">import</span>, chỉ <b>append</b> các dòng theo đúng thứ tự cột.</div>
   <div class="row">
     <div></div>
     <button class="btn" id="btnDownload" disabled>Tải Excel đã điền</button>
@@ -73,19 +71,11 @@
 const el = id => document.getElementById(id);
 const results = el('results');
 
+function stripDiacritics(s){ return s.normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+const norm = s => stripDiacritics(String(s||'')).replace(/\r?\n/g,' ').replace(/\s+/g,' ').trim().toLowerCase();
 const onlyDigits = s => (s||'').replace(/[^\d]/g,'');
 const vnNumToInt = s => { const d = onlyDigits(s); return d?parseInt(d,10):null; };
 
-function stripDiacritics(s){ return s.normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
-const norm = s => stripDiacritics(String(s==null?'':s))
-  .replace(/\r?\n/g,' ')
-  .replace(/\s+/g,' ')
-  .trim()
-  .toLowerCase();
-
-function show(o){ results.textContent = (typeof o==='string')?o:JSON.stringify(o,null,2); }
-
-// ---- PDF → text ----
 async function readPdfText(file){
   const uint8 = new Uint8Array(await file.arrayBuffer());
   const pdf = await pdfjsLib.getDocument({data:uint8}).promise;
@@ -98,186 +88,150 @@ async function readPdfText(file){
   return all;
 }
 
-// ---- Trích xuất bền ----
 function extractInvoiceFields(text){
   const N = norm(text);
   const num = s => s ? parseInt(s.replace(/[^\d]/g,''),10) : null;
-
-  // helper: tìm gần từ khóa trong bản đã chuẩn hóa
-  function findNear(keywords, pattern, span=200){
-    const keys = keywords.map(k=>norm(k));
-    let pos = -1;
-    for(const k of keys){ pos = N.indexOf(k); if(pos>=0) break; }
-    if(pos < 0) return null;
-    const chunk = N.slice(pos, Math.min(N.length, pos + span));
+  function findNear(keys, pattern, span=220){
+    const K = keys.map(k=>norm(k));
+    let pos = -1; for(const k of K){ pos = N.indexOf(k); if(pos>=0) break; }
+    if(pos<0) return null;
+    const chunk = N.slice(pos, Math.min(N.length, pos+span));
     const m = chunk.match(pattern);
     return m ? m[1] : null;
   }
 
   const out = {};
 
-  // Số hóa đơn (trên raw để giữ số)
+  // Invoice No
   let m = text.match(/Số\s*\(No\)\s*[:：]\s*([0-9]+)/i);
   out.invoiceNo = m ? m[1] : null;
 
-  // --- Mã KH (chịu nhiều biến thể) ---
-  let custMatch = text.match(/Mã\s*(KH|kh|Khách hàng|khach hang)[^A-Za-z0-9]{0,10}([A-Z0-9]{5,20})/i);
-  if(!custMatch){
-    custMatch = text.match(/Customer\s*(Code|code|\'s Code)[^A-Za-z0-9]{0,10}([A-Z0-9]{5,20})/i);
-  }
-  out.customerCode = custMatch ? custMatch[2].toUpperCase() : null;
-  // fallback bằng cơ chế findNear nếu vẫn null
+  // Customer Code (rắn hơn)
+  let custMatch = text.match(/Mã\s*(KH|Khách\s*hàng|khach\s*hang)[^A-Za-z0-9]{0,10}([A-Z0-9]{5,20})/i);
+  if(!custMatch){ custMatch = text.match(/Customer\s*Code[^A-Za-z0-9]{0,10}([A-Z0-9]{5,20})/i); }
+  out.customerCode = custMatch ? (custMatch[2] || custMatch[1]) : null;
   if(!out.customerCode){
-    const c2 = findNear(['Mã khách hàng','Ma khach hang','Customer Code',"Customer's Code"], /([a-z0-9]{5,20})/i);
+    const c2 = findNear(['Mã khách hàng','Ma khach hang','Customer Code',"Customer's Code"], /([A-Z0-9]{5,20})/i);
     out.customerCode = c2 ? c2.toUpperCase() : null;
   }
 
-  // Kỳ tính
-  m = N.match(/tu ngay\s*([0-9]{2}\/[0-9]{2}\/[0-9]{4}).{0,100}?den ngay\s*([0-9]{2}\/[0-9]{2}\/[0-9]{4})/i);
+  // Period
+  m = N.match(/tu ngay\s*([0-9]{2}\/[0-9]{2}\/[0-9]{4}).{0,120}?den ngay\s*([0-9]{2}\/[0-9]{2}\/[0-9]{4})/i);
   if(m){
-    out.periodStart = m[1];
-    out.periodEnd   = m[2];
-    out.monthCode   = out.periodEnd ? out.periodEnd.slice(6,10)+out.periodEnd.slice(3,5) : null; // yyyyMM (string)
+    out.periodStart = m[1]; out.periodEnd = m[2];
+    out.monthCode = out.periodEnd ? out.periodEnd.slice(6,10)+out.periodEnd.slice(3,5) : null; // yyyyMM
   }
 
   // kWh
   let kw = findNear(['kWh','kwh'], /([0-9\.,]+)/i);
-  if(!kw){
-    m = text.match(/kWh\s*([0-9\.,]+)/i) || text.match(/([0-9\.,]+)\s*kWh/i);
-    kw = m ? m[1] : null;
-  }
-  out.kwh = num(kw);
+  if(!kw){ m = text.match(/kWh\s*([0-9\.,]+)/i) || text.match(/([0-9\.,]+)\s*kWh/i); kw = m?m[1]:null; }
+  out.kwh = vnNumToInt(kw);
 
-  // Cộng tiền hàng
-  const amountBefore = findNear(
-    ['Cộng tiền hàng','Cong tien hang','Total amount'],
-    /([0-9][0-9\.,]{3,})/
-  );
-  out.amountBefore = num(amountBefore);
-
-  // VAT
-  const vat = findNear(
-    ['Tiền thuế GTGT','Tien thue GTGT','VAT amount'],
-    /([0-9][0-9\.,]{3,})/
-  );
-  out.vatAmount = num(vat);
-
-  // Tổng thanh toán
-  const total = findNear(
-    ['Tổng cộng tiền thanh toán','Tong cong tien thanh toan','Total payment'],
-    /([0-9][0-9\.,]{3,})/
-  );
-  out.totalAmount = num(total);
+  // Money
+  out.amountBefore = vnNumToInt(findNear(['Cộng tiền hàng','Cong tien hang','Total amount'], /([0-9][0-9\.,]{3,})/));
+  out.vatAmount    = vnNumToInt(findNear(['Tiền thuế GTGT','Tien thue GTGT','VAT amount'], /([0-9][0-9\.,]{3,})/));
+  out.totalAmount  = vnNumToInt(findNear(['Tổng cộng tiền thanh toán','Tong cong tien thanh toan','Total payment'], /([0-9][0-9\.,]{3,})/));
 
   return out;
 }
 
-// ---- Map header (fuzzy, bỏ dấu) ----
-function findIndexByAliases(header, aliases){
-  const nh = header.map(h=>norm(h));
-  const al = aliases.map(a=>norm(a));
-  for(let i=0;i<nh.length;i++) for(const a of al) if(nh[i]===a) return i;
-  for(let i=0;i<nh.length;i++) for(const a of al) if(nh[i].includes(a)) return i;
-  for(let i=0;i<nh.length;i++) for(const a of al) if(a.includes(nh[i])) return i;
-  return -1;
+// ---- Excel helpers ----
+const DEFAULT_HEADERS = [
+  'Mã tỉnh','Mã tháng (yyyyMM)','Kỳ','Mã CSHT','Mã EVN',
+  'Ngày đầu kỳ (dd/MM/yyyy)\n(Bắt buộc định dạng text)',
+  'Ngày cuối kỳ (dd/MM/yyyy)\n(Bắt buộc định dạng text)',
+  'Tổng chỉ số','Số tiền','Thuế VAT','Số hóa đơn','Số tiền dự kiến','Ghi chú'
+];
+
+function createEmptyWorkbook(){
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([DEFAULT_HEADERS]);
+  XLSX.utils.book_append_sheet(wb, ws, 'import');
+  return wb;
 }
-function buildColMap(header){
-  const H = header, map = {};
-  map.ma_tinh   = findIndexByAliases(H, ['Mã tỉnh','Ma tinh']);
-  map.ma_thang  = findIndexByAliases(H, ['Mã tháng (yyyyMM)','Ma thang (yyyyMM)','Mã tháng']);
-  map.ky        = findIndexByAliases(H, ['Kỳ','Ky']);
-  map.ma_csht   = findIndexByAliases(H, ['Mã CSHT','Ma CSHT']);
-  map.ma_evn    = findIndexByAliases(H, ['Mã EVN','Ma EVN','Mã khách hàng','Ma khach hang']);
-  map.ngay_dau  = findIndexByAliases(H, [
-    'Ngày đầu kỳ (dd/MM/yyyy)\n(Bắt buộc định dạng text)',
-    'Ngày đầu kỳ (dd/MM/yyyy) (Bắt buộc định dạng text)',
-    'Ngày đầu kỳ (dd/MM/yyyy)(Bắt buộc định dạng text)',
-    'Ngày đầu kỳ'
-  ]);
-  map.ngay_cuoi = findIndexByAliases(H, [
-    'Ngày cuối kỳ (dd/MM/yyyy)\n(Bắt buộc định dạng text)',
-    'Ngày cuối kỳ (dd/MM/yyyy) (Bắt buộc định dạng text)',
-    'Ngày cuối kỳ (dd/MM/yyyy)(Bắt buộc định dạng text)',
-    'Ngày cuối kỳ'
-  ]);
-  map.tong_chi_so     = findIndexByAliases(H, ['Tổng chỉ số','Tong chi so']);
-  map.so_tien         = findIndexByAliases(H, ['Số tiền','So tien']);
-  map.thue_vat        = findIndexByAliases(H, ['Thuế VAT','Thue VAT']);
-  map.so_hoa_don      = findIndexByAliases(H, ['Số hóa đơn','So hoa don']);
-  map.so_tien_du_kien = findIndexByAliases(H, ['Số tiền dự kiến','So tien du kien','Số tiền dự']);
-  map.ghi_chu         = findIndexByAliases(H, ['Ghi chú','Ghi chu']);
-  return map;
+
+function getOrCreateWorkbook(file){
+  return new Promise((resolve,reject)=>{
+    if(!file){ resolve(createEmptyWorkbook()); return; }
+    const fr = new FileReader();
+    fr.onload = e=>{
+      try{
+        const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+        if(!wb.Sheets['import']){
+          const ws = XLSX.utils.aoa_to_sheet([DEFAULT_HEADERS]);
+          XLSX.utils.book_append_sheet(wb, ws, 'import');
+        }
+        resolve(wb);
+      }catch(err){ reject(err); }
+    };
+    fr.onerror = reject;
+    fr.readAsArrayBuffer(file);
+  });
 }
-function buildRow(header, colMap, data){
+
+function appendRow(ws, header, data){
+  // map theo vị trí tiêu đề chuẩn
   const row = new Array(header.length).fill('');
-  const set = (k,v)=>{ const i = colMap[k]; if(i>=0) row[i] = (v==null?'':v); };
-  set('ma_tinh', data.maTinh);
-  set('ma_thang', data.monthCode);
-  set('ky', data.ky);
-  // CSHT từ tên file: 3 phần đầu, ví dụ CSHT_YBI_00014
-  set('ma_csht', data.csht);
-  set('ma_evn', data.customerCode);
-  set('ngay_dau', data.periodStart);
-  set('ngay_cuoi', data.periodEnd);
-  set('tong_chi_so', data.kwh);
-  set('so_tien', data.amountBefore);
-  set('thue_vat', data.vatAmount);
-  set('so_hoa_don', data.invoiceNo);
-  set('so_tien_du_kien', data.totalAmount);
-  set('ghi_chu', 'Map dự kiến từ hóa đơn điện tử');
-  return row;
+  const set = (name, val) => { const idx = header.indexOf(name); if(idx>=0) row[idx] = (val==null?'':val); };
+  set('Mã tỉnh', data.maTinh);
+  set('Mã tháng (yyyyMM)', data.monthCode);
+  set('Kỳ', data.ky);
+  set('Mã CSHT', data.csht);
+  set('Mã EVN', data.customerCode);
+  set('Ngày đầu kỳ (dd/MM/yyyy)\n(Bắt buộc định dạng text)', data.periodStart);
+  set('Ngày cuối kỳ (dd/MM/yyyy)\n(Bắt buộc định dạng text)', data.periodEnd);
+  set('Tổng chỉ số', data.kwh);
+  set('Số tiền', data.amountBefore);
+  set('Thuế VAT', data.vatAmount);
+  set('Số hóa đơn', data.invoiceNo);
+  set('Số tiền dự kiến', data.totalAmount);
+  set('Ghi chú', 'Map dự kiến từ hóa đơn điện tử');
+  XLSX.utils.sheet_add_aoa(ws, [row], {origin:-1});
 }
 
 let filledWb = null;
 
-el('btnProcess').addEventListener('click', async () => {
+el('btnProcess').addEventListener('click', async ()=>{
   try{
-    const pdfFile = el('pdfFile').files[0];
-    const xlsxFile = el('xlsxFile').files[0];
-    if(!pdfFile || !xlsxFile){ alert('Vui lòng chọn cả hóa đơn PDF và file mẫu Excel.'); return; }
+    const pdfFiles = [...(el('pdfFiles').files||[])];
+    const tmplFile = el('xlsxFile').files[0] || null;
+    if(pdfFiles.length===0){ alert('Vui lòng chọn ít nhất 1 file PDF hóa đơn.'); return; }
 
-    // 1) Trích xuất PDF
-    show('Đang đọc PDF…');
-    const text = await readPdfText(pdfFile);
-    const ext = extractInvoiceFields(text);
+    // workbook: lấy từ mẫu hoặc tạo mới
+    const wb = await getOrCreateWorkbook(tmplFile);
+    const ws = wb.Sheets['import'];
+    // đọc header hiện có
+    const header = XLSX.utils.sheet_to_json(ws, {header:1, blankrows:false})[0] || DEFAULT_HEADERS;
 
-    // 2) CSHT: lấy đúng 3 phần đầu tên file (CSHT_YBI_00014_07-2025.pdf -> CSHT_YBI_00014)
-    const base = pdfFile.name.replace(/\.[^.]+$/,'');
-    const parts = base.split('_');
-    ext.csht = (parts.length>=3) ? parts.slice(0,3).join('_') : base;
+    const maTinh = el('maTinh').value || 'YBI';
+    const ky = parseInt(el('ky').value||'1',10);
 
-    // 3) Tham số form
-    ext.maTinh = el('maTinh').value || 'YBI';
-    ext.ky     = parseInt(el('ky').value||'1',10);
+    const log = [];
+    for(const f of pdfFiles){
+      results.textContent = `Đang xử lý: ${f.name}…`;
+      const text = await readPdfText(f);
+      const ext = extractInvoiceFields(text);
 
-    // 4) Đọc Excel template & header
-    const buf = await xlsxFile.arrayBuffer();
-    const wb = XLSX.read(buf, {type:'array'});
-    const wsName = 'import';
-    const ws = wb.Sheets[wsName];
-    if(!ws) throw new Error(`Không tìm thấy sheet "${wsName}"`);
+      // CSHT: 3 phần đầu của tên file
+      const base = f.name.replace(/\.[^.]+$/,'');
+      const parts = base.split('_');
+      ext.csht = (parts.length>=3) ? parts.slice(0,3).join('_') : base;
 
-    const aoa = XLSX.utils.sheet_to_json(ws, {header:1, blankrows:false});
-    if(aoa.length===0) throw new Error('Sheet trống, không có header.');
-    const header = aoa[0];
+      ext.maTinh = maTinh; ext.ky = ky;
 
-    // Log nhanh để kiểm tra
-    show({extracted: ext, header});
+      appendRow(ws, header, {
+        maTinh: ext.maTinh, monthCode: ext.monthCode, ky: ext.ky, csht: ext.csht,
+        customerCode: ext.customerCode, periodStart: ext.periodStart, periodEnd: ext.periodEnd,
+        kwh: ext.kwh, amountBefore: ext.amountBefore, vatAmount: ext.vatAmount,
+        invoiceNo: ext.invoiceNo, totalAmount: ext.totalAmount
+      });
 
-    // 5) Map cột & tạo dòng mới
-    const colMap = buildColMap(header);
-    const newRow = buildRow(header, colMap, {
-      maTinh: ext.maTinh, monthCode: ext.monthCode, ky: ext.ky, csht: ext.csht,
-      customerCode: ext.customerCode, periodStart: ext.periodStart, periodEnd: ext.periodEnd,
-      kwh: ext.kwh, amountBefore: ext.amountBefore, vatAmount: ext.vatAmount,
-      invoiceNo: ext.invoiceNo, totalAmount: ext.totalAmount
-    });
+      log.push({file:f.name, extracted:ext});
+    }
 
-    // 6) Append dòng (không động vào header/cột)
-    XLSX.utils.sheet_add_aoa(ws, [newRow], {origin: -1});
     filledWb = wb;
     el('btnDownload').disabled = false;
-    results.textContent += '\n\n✅ Đã thêm 1 dòng vào sheet import.';
+    results.textContent = JSON.stringify({done:true, files:log}, null, 2) + '\n\n✅ Hoàn tất. Bấm "Tải Excel đã điền".';
   }catch(err){
     console.error(err);
     results.textContent = 'Lỗi: '+err.message;
@@ -297,7 +251,7 @@ el('btnDownload').addEventListener('click', ()=>{
 
 el('btnReset').addEventListener('click', ()=>{
   filledWb = null; results.textContent = 'Chưa có dữ liệu…';
-  el('btnDownload').disabled = true; el('pdfFile').value=''; el('xlsxFile').value='';
+  el('btnDownload').disabled = true; el('pdfFiles').value=''; el('xlsxFile').value='';
 });
 </script>
 </body>
