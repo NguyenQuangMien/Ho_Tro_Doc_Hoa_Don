@@ -16,6 +16,7 @@
     .btn{display:inline-block;padding:10px 14px;border-radius:12px;border:1px solid #111;background:#111;color:#fff;cursor:pointer}
     .btn.secondary{background:#fff;color:#111}
     .muted{color:#6b7280}.small{font-size:12px}.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+    pre{background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:10px;white-space:pre-wrap}
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
   <script>pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';</script>
@@ -53,13 +54,13 @@
 </section>
 
 <section class="card">
-  <h2 style="font-size:18px;margin-top:0">Kết quả trích xuất</h2>
-  <pre id="results" class="small mono muted" style="white-space:pre-wrap">Chưa có dữ liệu…</pre>
+  <h2 style="font-size:18px;margin-top:0">Kết quả / Header sheet</h2>
+  <pre id="results" class="small mono muted">Chưa có dữ liệu…</pre>
 </section>
 
 <section class="card">
   <h2 style="font-size:18px;margin-top:0">Tải file Excel đã điền</h2>
-  <div class="small muted">Sheet <span class="mono">import</span> sẽ được giữ nguyên header gốc, chỉ <b>append</b> 1 dòng đúng thứ tự cột.</div>
+  <div class="small muted">Sheet <span class="mono">import</span> giữ nguyên tiêu đề, chỉ <b>append</b> 1 dòng đúng thứ tự cột.</div>
   <div class="row">
     <div></div>
     <button class="btn" id="btnDownload" disabled>Tải Excel đã điền</button>
@@ -72,13 +73,16 @@ const results = el('results');
 
 const onlyDigits = s => (s||'').replace(/[^\d]/g,'');
 const vnNumToInt = s => { const d = onlyDigits(s); return d?parseInt(d,10):null; };
-const norm = s => (s==null?'' : String(s))
-  .replace(/\r?\n/g,' ')     // bỏ xuống dòng
-  .replace(/\s+/g,' ')       // gộp khoảng trắng
+
+// chuẩn hóa: bỏ dấu, gộp khoảng trắng, lower-case
+function stripDiacritics(s){ return s.normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+const norm = s => stripDiacritics(String(s==null?'':s))
+  .replace(/\r?\n/g,' ')
+  .replace(/\s+/g,' ')
   .trim()
   .toLowerCase();
 
-function show(o){ results.textContent = JSON.stringify(o,null,2); }
+function show(o){ results.textContent = (typeof o==='string')?o:JSON.stringify(o,null,2); }
 
 async function readPdfText(file){
   const uint8 = new Uint8Array(await file.arrayBuffer());
@@ -100,7 +104,11 @@ function extractInvoiceFields(text){
   m = text.match(/Mã\s*khách\s*hàng.*?:\s*([A-Z0-9]+)/i); out.customerCode = m?m[1]:null;
 
   m = text.match(/từ ngày\s*([0-9]{2}\/[0-9]{2}\/[0-9]{4}).*?đến ngày\s*([0-9]{2}\/[0-9]{2}\/[0-9]{4})/is);
-  if(m){ out.periodStart = m[1]; out.periodEnd = m[2]; out.monthCode = m[2].slice(6,10)+m[2].slice(3,5); }
+  if(m){
+    out.periodStart = m[1];
+    out.periodEnd   = m[2];
+    out.monthCode   = parseInt(m[2].slice(6,10)+m[2].slice(3,5),10); // yyyyMM (number)
+  }
 
   m = text.match(/kWh\s*([0-9\.,]+)/i) || text.match(/([0-9\.,]+)\s*kWh/i);
   if(m) out.kwh = vnNumToInt(m[1]);
@@ -117,70 +125,68 @@ function extractInvoiceFields(text){
   return out;
 }
 
-// tìm vị trí cột theo danh sách alias (đã chuẩn hóa)
-function findColIndexMap(header){
+// tìm cột theo alias & từ khóa (fuzzy)
+function findIndexByAliases(header, aliases){
+  const nh = header.map(h=>norm(h));
+  const al = aliases.map(a=>norm(a));
+  // 1) exact
+  for(let i=0;i<nh.length;i++) for(const a of al) if(nh[i]===a) return i;
+  // 2) header contains alias
+  for(let i=0;i<nh.length;i++) for(const a of al) if(nh[i].includes(a)) return i;
+  // 3) alias contains header (ít gặp)
+  for(let i=0;i<nh.length;i++) for(const a of al) if(a.includes(nh[i])) return i;
+  return -1;
+}
+
+function buildColMap(header){
   const map = {};
-  const idxByNorm = {};
-  header.forEach((h,i)=> idxByNorm[norm(h)] = i);
+  const H = header;
 
-  function put(key, aliases){
-    for(const a of aliases){
-      const i = idxByNorm[norm(a)];
-      if(i!=null){ map[key]=i; return; }
-    }
-    map[key] = -1; // không thấy cột
-  }
+  map.ma_tinh   = findIndexByAliases(H, ['Mã tỉnh','Ma tinh']);
+  map.ma_thang  = findIndexByAliases(H, ['Mã tháng (yyyyMM)','Ma thang (yyyyMM)','Mã tháng']);
+  map.ky        = findIndexByAliases(H, ['Kỳ','Ky']);
+  map.ma_csht   = findIndexByAliases(H, ['Mã CSHT','Ma CSHT']);
+  map.ma_evn    = findIndexByAliases(H, ['Mã EVN','Ma EVN','Mã khách hàng','Ma khach hang']);
 
-  put('ma_tinh', ['Mã tỉnh','Ma tinh']);
-  put('ma_thang', ['Mã tháng (yyyyMM)','Ma thang (yyyyMM)','Mã tháng']);
-  put('ky', ['Kỳ','Ky']);
-  put('ma_csht', ['Mã CSHT','Ma CSHT']);
-  put('ma_evn', ['Mã EVN','Ma EVN','Mã khách hàng','Ma khach hang']);
-
-  // 2 cột ngày có xuống dòng – alias để khớp mọi biến thể
-  put('ngay_dau', [
+  map.ngay_dau  = findIndexByAliases(H, [
     'Ngày đầu kỳ (dd/MM/yyyy)\n(Bắt buộc định dạng text)',
     'Ngày đầu kỳ (dd/MM/yyyy) (Bắt buộc định dạng text)',
     'Ngày đầu kỳ (dd/MM/yyyy)(Bắt buộc định dạng text)',
     'Ngày đầu kỳ'
   ]);
-  put('ngay_cuoi', [
+  map.ngay_cuoi = findIndexByAliases(H, [
     'Ngày cuối kỳ (dd/MM/yyyy)\n(Bắt buộc định dạng text)',
     'Ngày cuối kỳ (dd/MM/yyyy) (Bắt buộc định dạng text)',
     'Ngày cuối kỳ (dd/MM/yyyy)(Bắt buộc định dạng text)',
     'Ngày cuối kỳ'
   ]);
 
-  put('tong_chi_so', ['Tổng chỉ số','Tong chi so']);
-  put('so_tien', ['Số tiền','So tien']);
-  put('thue_vat', ['Thuế VAT','Thue VAT']);
-  put('so_hoa_don', ['Số hóa đơn','So hoa don']);
-  put('so_tien_du_kien', ['Số tiền dự kiến','So tien du kien']);
-  put('ghi_chu', ['Ghi chú','Ghi chu']);
+  map.tong_chi_so    = findIndexByAliases(H, ['Tổng chỉ số','Tong chi so']);
+  map.so_tien        = findIndexByAliases(H, ['Số tiền','So tien']);
+  map.thue_vat       = findIndexByAliases(H, ['Thuế VAT','Thue VAT']);
+  map.so_hoa_don     = findIndexByAliases(H, ['Số hóa đơn','So hoa don']);
+  map.so_tien_du_kien= findIndexByAliases(H, ['Số tiền dự kiến','So tien du kien','Số tiền dự']);
+  map.ghi_chu        = findIndexByAliases(H, ['Ghi chú','Ghi chu']);
 
   return map;
 }
 
-function buildRowByHeader(header, colMap, dataObj){
+function buildRow(header, colMap, data){
   const row = new Array(header.length).fill('');
+  const set = (k,v)=>{ const i = colMap[k]; if(i>=0) row[i] = (v==null?'':v); };
 
-  function set(key, val){
-    const i = colMap[key];
-    if(i!=null && i>=0) row[i] = (val==null ? '' : val);
-  }
-
-  set('ma_tinh', dataObj.maTinh);
-  set('ma_thang', dataObj.monthCode);
-  set('ky', dataObj.ky);
-  set('ma_csht', dataObj.csht);
-  set('ma_evn', dataObj.customerCode);
-  set('ngay_dau', dataObj.periodStart);
-  set('ngay_cuoi', dataObj.periodEnd);
-  set('tong_chi_so', dataObj.kwh);
-  set('so_tien', dataObj.amountBefore);
-  set('thue_vat', dataObj.vatAmount);
-  set('so_hoa_don', dataObj.invoiceNo);
-  set('so_tien_du_kien', dataObj.totalAmount);
+  set('ma_tinh', data.maTinh);
+  set('ma_thang', data.monthCode);
+  set('ky', data.ky);
+  set('ma_csht', data.csht);
+  set('ma_evn', data.customerCode);
+  set('ngay_dau', data.periodStart);
+  set('ngay_cuoi', data.periodEnd);
+  set('tong_chi_so', data.kwh);
+  set('so_tien', data.amountBefore);
+  set('thue_vat', data.vatAmount);
+  set('so_hoa_don', data.invoiceNo);
+  set('so_tien_du_kien', data.totalAmount);
   set('ghi_chu', 'Map dự kiến từ hóa đơn điện tử');
 
   return row;
@@ -194,50 +200,49 @@ el('btnProcess').addEventListener('click', async () => {
     const xlsxFile = el('xlsxFile').files[0];
     if(!pdfFile || !xlsxFile){ alert('Vui lòng chọn cả hóa đơn PDF và file mẫu Excel.'); return; }
 
-    // 1) Đọc & trích xuất PDF
-    results.textContent = 'Đang đọc PDF…';
+    // 1) Trích xuất PDF
+    show('Đang đọc PDF…');
     const text = await readPdfText(pdfFile);
     const ext = extractInvoiceFields(text);
 
-    // 2) Suy ra CSHT chắc chắn từ tên file: lấy 3 phần đầu
-    const base = pdfFile.name.replace(/\.[^.]+$/,'');
+    // 2) CSHT: lấy đúng 3 phần đầu của tên file
+    const base = pdfFile.name.replace(/\.[^.]+$/,''); // bỏ .pdf
     const parts = base.split('_');
-    let csht = parts.length>=3 ? parts.slice(0,3).join('_') : base;
-    ext.csht = csht;
+    ext.csht = (parts.length>=3) ? parts.slice(0,3).join('_') : base;
 
-    // 3) Bổ sung tham số form
+    // 3) Form options
     ext.maTinh = el('maTinh').value || 'YBI';
-    ext.ky = parseInt(el('ky').value||'1',10);
-    show(ext);
+    ext.ky     = parseInt(el('ky').value||'1',10);
 
-    // 4) Đọc Excel template
+    // 4) Đọc Excel template & header
     const buf = await xlsxFile.arrayBuffer();
     const wb = XLSX.read(buf, {type:'array'});
     const wsName = 'import';
     const ws = wb.Sheets[wsName];
     if(!ws) throw new Error(`Không tìm thấy sheet "${wsName}"`);
 
-    // 5) Đọc header gốc (hàng 1) và map cột
     const aoa = XLSX.utils.sheet_to_json(ws, {header:1, blankrows:false});
     if(aoa.length===0) throw new Error('Sheet trống, không có header.');
     const header = aoa[0];
-    const colMap = findColIndexMap(header);
 
-    // 6) Tạo dòng mới theo đúng thứ tự cột
-    const newRow = buildRowByHeader(header, colMap, {
+    // log header thực tế
+    show({extracted: ext, header});
+
+    // 5) Map cột (fuzzy) và tạo dòng mới
+    const colMap = buildColMap(header);
+    const newRow = buildRow(header, colMap, {
       maTinh: ext.maTinh, monthCode: ext.monthCode, ky: ext.ky, csht: ext.csht,
       customerCode: ext.customerCode, periodStart: ext.periodStart, periodEnd: ext.periodEnd,
       kwh: ext.kwh, amountBefore: ext.amountBefore, vatAmount: ext.vatAmount,
       invoiceNo: ext.invoiceNo, totalAmount: ext.totalAmount
     });
 
-    // 7) Append dòng (không thay header / không tạo cột mới)
+    // 6) Append dòng (không động vào header)
     XLSX.utils.sheet_add_aoa(ws, [newRow], {origin: -1});
-
-    // 8) Lưu workbook
     filledWb = wb;
+
     el('btnDownload').disabled = false;
-    results.textContent += '\n\n✅ Đã thêm 1 dòng vào sheet import (giữ nguyên tiêu đề cột).';
+    results.textContent += '\n\n✅ Đã thêm 1 dòng vào sheet import.';
   }catch(err){
     console.error(err);
     results.textContent = 'Lỗi: '+err.message;
