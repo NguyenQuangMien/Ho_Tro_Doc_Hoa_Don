@@ -15,184 +15,250 @@
     .row{display:grid;grid-template-columns:220px 1fr;gap:12px;align-items:center;margin:6px 0}
     .btn{display:inline-block;padding:10px 14px;border-radius:12px;border:1px solid #111;background:#111;color:#fff;cursor:pointer}
     .btn.secondary{background:#fff;color:#111}
-    .muted{color:#6b7280}
-    code,pre{background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:8px}
-    .ok{color:#065f46}
-    .warn{color:#b45309}
-    .err{color:#b91c1c}
-    .small{font-size:12px}
-    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
-    .field{display:flex;gap:8px;align-items:center}
-    .field input{flex:1;border:1px solid #e5e7eb;border-radius:10px;padding:8px 10px}
-    footer{margin-top:24px}
+    .muted{color:#6b7280}.small{font-size:12px}.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
   </style>
-  <!-- PDF.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-  <!-- SheetJS -->
+  <script>pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';</script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
-  <header>
-    <h1>Nhập liệu hóa đơn điện → Excel (client-side)</h1>
-    <div class="muted small">Tải hóa đơn PDF và file mẫu Excel <span class="mono">Mau_TH.xlsx</span>, hệ thống sẽ điền 1 dòng vào sheet <span class="mono">import</span>.</div>
-  </header>
+<header>
+  <h1>Nhập liệu hóa đơn điện → Excel (client-side)</h1>
+  <div class="muted small">Tải hóa đơn PDF EVN và file mẫu <span class="mono">Mau_TH.xlsx</span>, hệ thống sẽ thêm 1 dòng vào sheet <span class="mono">import</span>.</div>
+</header>
 
-  <section class="card">
-    <div class="grid">
-      <div>
-        <label>1) Tải hóa đơn PDF</label>
-        <input id="pdfFile" type="file" accept="application/pdf" />
-      </div>
-      <div>
-        <label>2) Tải file mẫu Excel</label>
-        <input id="xlsxFile" type="file" accept=".xlsx,.xls" />
-      </div>
+<section class="card">
+  <div class="grid">
+    <div>
+      <label>1) Hóa đơn PDF</label>
+      <input id="pdfFile" type="file" accept="application/pdf" />
     </div>
-    <div class="row">
-      <div class="muted">Tùy chọn:</div>
-      <div class="field">
-        <label for="maTinh" class="muted">Mã tỉnh</label>
-        <input id="maTinh" value="YBI" />
-        <label for="ky" class="muted">Kỳ</label>
-        <input id="ky" value="1" />
-      </div>
+    <div>
+      <label>2) File mẫu Excel</label>
+      <input id="xlsxFile" type="file" accept=".xlsx,.xls" />
     </div>
-    <div class="row">
-      <div></div>
-      <button class="btn" id="btnProcess">Đọc hóa đơn → Điền vào Excel</button>
-      <button class="btn secondary" id="btnReset">Làm lại</button>
+  </div>
+  <div class="row">
+    <div class="muted">Tùy chọn:</div>
+    <div>
+      <label class="muted">Mã tỉnh</label><input id="maTinh" value="YBI" />
+      <label class="muted">Kỳ</label><input id="ky" value="1" />
     </div>
-  </section>
+  </div>
+  <div class="row">
+    <div></div>
+    <button class="btn" id="btnProcess">Đọc hóa đơn → Điền vào Excel</button>
+    <button class="btn secondary" id="btnReset">Làm lại</button>
+  </div>
+</section>
 
-  <section class="card">
-    <h2 style="font-size:18px;margin-top:0">Kết quả trích xuất</h2>
-    <div id="results" class="small mono muted">Chưa có dữ liệu…</div>
-  </section>
+<section class="card">
+  <h2 style="font-size:18px;margin-top:0">Kết quả trích xuất</h2>
+  <pre id="results" class="small mono muted" style="white-space:pre-wrap">Chưa có dữ liệu…</pre>
+</section>
 
-  <section class="card">
-    <h2 style="font-size:18px;margin-top:0">Tải file Excel đã điền</h2>
-    <div class="small muted">Bấm nút để tải file Excel mới (sheet <span class="mono">import</span> được thêm 1 dòng).</div>
-    <div class="row">
-      <div></div>
-      <button class="btn" id="btnDownload" disabled>Tải Excel đã điền</button>
-    </div>
-  </section>
-
-  <footer class="muted small">Triển khai: tạo repo public trên GitHub → bật Pages → tải file này lên làm index.html</footer>
+<section class="card">
+  <h2 style="font-size:18px;margin-top:0">Tải file Excel đã điền</h2>
+  <div class="small muted">Sheet <span class="mono">import</span> sẽ được giữ nguyên header gốc, chỉ <b>append</b> 1 dòng đúng thứ tự cột.</div>
+  <div class="row">
+    <div></div>
+    <button class="btn" id="btnDownload" disabled>Tải Excel đã điền</button>
+  </div>
+</section>
 
 <script>
-  const pdfjsLib = window['pdfjs-dist/build/pdf'];
-  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-  const el = (id) => document.getElementById(id);
-  const results = el('results');
-  let extracted = null;
-  let workbook = null;
-  let filledWb = null;
+const el = id => document.getElementById(id);
+const results = el('results');
 
-  function show(obj) { results.textContent = JSON.stringify(obj, null, 2); }
-  const onlyDigits = (s) => (s||'').replace(/[^\d]/g, '');
-  const vnNumToInt = (s) => { const d = onlyDigits(s); return d ? parseInt(d, 10) : null; };
+const onlyDigits = s => (s||'').replace(/[^\d]/g,'');
+const vnNumToInt = s => { const d = onlyDigits(s); return d?parseInt(d,10):null; };
+const norm = s => (s==null?'' : String(s))
+  .replace(/\r?\n/g,' ')     // bỏ xuống dòng
+  .replace(/\s+/g,' ')       // gộp khoảng trắng
+  .trim()
+  .toLowerCase();
 
-  function extractInvoiceFields(text) {
-    const out = {};
-    const rx = (r, flags='i') => new RegExp(r, flags);
-    out.invoiceNo = (text.match(rx("Số\\s*\\(No\\)\\s*:\\s*([0-9]+)"))||[])[1]||null;
-    out.customerCode = (text.match(rx("Mã\\s*khách\\s*hàng.*?:\\s*([A-Z0-9]+)"))||[])[1]||null;
-    let m = text.match(/từ ngày\s*([0-9]{2}\/[0-9]{2}\/[0-9]{4}).*?đến ngày\s*([0-9]{2}\/[0-9]{2}\/[0-9]{4})/is);
-    if (m) { out.periodStart = m[1]; out.periodEnd = m[2]; }
-    m = text.match(/kWh\s*([0-9\.,]+)/i) || text.match(/([0-9\.,]+)\s*kWh/i);
-    if (m) out.kwh = vnNumToInt(m[1]);
-    m = text.match(/Cộng tiền hàng.*?:\s*([0-9\.,]+)/i);
-    if (m) out.amountBefore = vnNumToInt(m[1]);
-    m = text.match(/Tiền thuế GTGT.*?:\s*([0-9\.,]+)/i);
-    if (m) out.vatAmount = vnNumToInt(m[1]);
-    m = text.match(/Tổng cộng tiền thanh toán.*?:\s*([0-9\.,]+)/i);
-    if (m) out.totalAmount = vnNumToInt(m[1]);
-    if (out.periodEnd) { const [d, mth, y] = out.periodEnd.split('/'); out.monthCode = `${y}${mth}`; }
-    return out;
+function show(o){ results.textContent = JSON.stringify(o,null,2); }
+
+async function readPdfText(file){
+  const uint8 = new Uint8Array(await file.arrayBuffer());
+  const pdf = await pdfjsLib.getDocument({data:uint8}).promise;
+  let all = '';
+  for(let i=1;i<=pdf.numPages;i++){
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    all += content.items.map(it=>it.str).join('\n')+'\n';
   }
+  return all;
+}
 
-  async function readPdfText(file) {
-    const uint8 = new Uint8Array(await file.arrayBuffer());
-    const pdf = await pdfjsLib.getDocument({ data: uint8 }).promise;
-    let all = '';
-    for (let i=1; i<=pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      const strings = content.items.map(it => it.str);
-      all += strings.join('\n') + '\n';
+function extractInvoiceFields(text){
+  const out = {};
+  let m;
+
+  m = text.match(/Số\s*\(No\)\s*:\s*([0-9]+)/i); out.invoiceNo = m?m[1]:null;
+  m = text.match(/Mã\s*khách\s*hàng.*?:\s*([A-Z0-9]+)/i); out.customerCode = m?m[1]:null;
+
+  m = text.match(/từ ngày\s*([0-9]{2}\/[0-9]{2}\/[0-9]{4}).*?đến ngày\s*([0-9]{2}\/[0-9]{2}\/[0-9]{4})/is);
+  if(m){ out.periodStart = m[1]; out.periodEnd = m[2]; out.monthCode = m[2].slice(6,10)+m[2].slice(3,5); }
+
+  m = text.match(/kWh\s*([0-9\.,]+)/i) || text.match(/([0-9\.,]+)\s*kWh/i);
+  if(m) out.kwh = vnNumToInt(m[1]);
+
+  m = text.match(/Cộng tiền hàng.*?:\s*([0-9\.,]+)/i);
+  if(m) out.amountBefore = vnNumToInt(m[1]);
+
+  m = text.match(/Tiền thuế GTGT.*?:\s*([0-9\.,]+)/i);
+  if(m) out.vatAmount = vnNumToInt(m[1]);
+
+  m = text.match(/Tổng cộng tiền thanh toán.*?:\s*([0-9\.,]+)/i);
+  if(m) out.totalAmount = vnNumToInt(m[1]);
+
+  return out;
+}
+
+// tìm vị trí cột theo danh sách alias (đã chuẩn hóa)
+function findColIndexMap(header){
+  const map = {};
+  const idxByNorm = {};
+  header.forEach((h,i)=> idxByNorm[norm(h)] = i);
+
+  function put(key, aliases){
+    for(const a of aliases){
+      const i = idxByNorm[norm(a)];
+      if(i!=null){ map[key]=i; return; }
     }
-    return all;
+    map[key] = -1; // không thấy cột
   }
 
-  function appendToTemplateAndBuild(extracted, templateWb) {
+  put('ma_tinh', ['Mã tỉnh','Ma tinh']);
+  put('ma_thang', ['Mã tháng (yyyyMM)','Ma thang (yyyyMM)','Mã tháng']);
+  put('ky', ['Kỳ','Ky']);
+  put('ma_csht', ['Mã CSHT','Ma CSHT']);
+  put('ma_evn', ['Mã EVN','Ma EVN','Mã khách hàng','Ma khach hang']);
+
+  // 2 cột ngày có xuống dòng – alias để khớp mọi biến thể
+  put('ngay_dau', [
+    'Ngày đầu kỳ (dd/MM/yyyy)\n(Bắt buộc định dạng text)',
+    'Ngày đầu kỳ (dd/MM/yyyy) (Bắt buộc định dạng text)',
+    'Ngày đầu kỳ (dd/MM/yyyy)(Bắt buộc định dạng text)',
+    'Ngày đầu kỳ'
+  ]);
+  put('ngay_cuoi', [
+    'Ngày cuối kỳ (dd/MM/yyyy)\n(Bắt buộc định dạng text)',
+    'Ngày cuối kỳ (dd/MM/yyyy) (Bắt buộc định dạng text)',
+    'Ngày cuối kỳ (dd/MM/yyyy)(Bắt buộc định dạng text)',
+    'Ngày cuối kỳ'
+  ]);
+
+  put('tong_chi_so', ['Tổng chỉ số','Tong chi so']);
+  put('so_tien', ['Số tiền','So tien']);
+  put('thue_vat', ['Thuế VAT','Thue VAT']);
+  put('so_hoa_don', ['Số hóa đơn','So hoa don']);
+  put('so_tien_du_kien', ['Số tiền dự kiến','So tien du kien']);
+  put('ghi_chu', ['Ghi chú','Ghi chu']);
+
+  return map;
+}
+
+function buildRowByHeader(header, colMap, dataObj){
+  const row = new Array(header.length).fill('');
+
+  function set(key, val){
+    const i = colMap[key];
+    if(i!=null && i>=0) row[i] = (val==null ? '' : val);
+  }
+
+  set('ma_tinh', dataObj.maTinh);
+  set('ma_thang', dataObj.monthCode);
+  set('ky', dataObj.ky);
+  set('ma_csht', dataObj.csht);
+  set('ma_evn', dataObj.customerCode);
+  set('ngay_dau', dataObj.periodStart);
+  set('ngay_cuoi', dataObj.periodEnd);
+  set('tong_chi_so', dataObj.kwh);
+  set('so_tien', dataObj.amountBefore);
+  set('thue_vat', dataObj.vatAmount);
+  set('so_hoa_don', dataObj.invoiceNo);
+  set('so_tien_du_kien', dataObj.totalAmount);
+  set('ghi_chu', 'Map dự kiến từ hóa đơn điện tử');
+
+  return row;
+}
+
+let filledWb = null;
+
+el('btnProcess').addEventListener('click', async () => {
+  try{
+    const pdfFile = el('pdfFile').files[0];
+    const xlsxFile = el('xlsxFile').files[0];
+    if(!pdfFile || !xlsxFile){ alert('Vui lòng chọn cả hóa đơn PDF và file mẫu Excel.'); return; }
+
+    // 1) Đọc & trích xuất PDF
+    results.textContent = 'Đang đọc PDF…';
+    const text = await readPdfText(pdfFile);
+    const ext = extractInvoiceFields(text);
+
+    // 2) Suy ra CSHT chắc chắn từ tên file: lấy 3 phần đầu
+    const base = pdfFile.name.replace(/\.[^.]+$/,'');
+    const parts = base.split('_');
+    let csht = parts.length>=3 ? parts.slice(0,3).join('_') : base;
+    ext.csht = csht;
+
+    // 3) Bổ sung tham số form
+    ext.maTinh = el('maTinh').value || 'YBI';
+    ext.ky = parseInt(el('ky').value||'1',10);
+    show(ext);
+
+    // 4) Đọc Excel template
+    const buf = await xlsxFile.arrayBuffer();
+    const wb = XLSX.read(buf, {type:'array'});
     const wsName = 'import';
-    const ws = templateWb.Sheets[wsName];
-    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-    const pdfName = (el('pdfFile').files[0]?.name||'').split('.')[0];
-    let csht = null;
-    const m = pdfName.match(/^(CSHT_[A-Z]{3}_[0-9]{5})/i);
-    csht = m ? m[1] : pdfName;
-    const newRow = {
-      'Mã tỉnh': el('maTinh').value || 'YBI',
-      'Mã tháng (yyyyMM)': extracted.monthCode || '',
-      'Kỳ': el('ky').value || '1',
-      'Mã CSHT': csht || '',
-      'Mã EVN': extracted.customerCode || '',
-      'Ngày đầu kỳ (dd/MM/yyyy)\n(Bắt buộc định dạng text)': extracted.periodStart || '',
-      'Ngày cuối kỳ (dd/MM/yyyy)\n(Bắt buộc định dạng text)': extracted.periodEnd || '',
-      'Tổng chỉ số': extracted.kwh || '',
-      'Số tiền': extracted.amountBefore || '',
-      'Thuế VAT': extracted.vatAmount || '',
-      'Số hóa đơn': extracted.invoiceNo || '',
-      'Số tiền dự kiến': extracted.totalAmount || '',
-      'Ghi chú': 'Map dự kiến từ hóa đơn điện tử'
-    };
-    rows.push(newRow);
-    const newWs = XLSX.utils.json_to_sheet(rows);
-    const outWb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(outWb, newWs, wsName);
-    return outWb;
+    const ws = wb.Sheets[wsName];
+    if(!ws) throw new Error(`Không tìm thấy sheet "${wsName}"`);
+
+    // 5) Đọc header gốc (hàng 1) và map cột
+    const aoa = XLSX.utils.sheet_to_json(ws, {header:1, blankrows:false});
+    if(aoa.length===0) throw new Error('Sheet trống, không có header.');
+    const header = aoa[0];
+    const colMap = findColIndexMap(header);
+
+    // 6) Tạo dòng mới theo đúng thứ tự cột
+    const newRow = buildRowByHeader(header, colMap, {
+      maTinh: ext.maTinh, monthCode: ext.monthCode, ky: ext.ky, csht: ext.csht,
+      customerCode: ext.customerCode, periodStart: ext.periodStart, periodEnd: ext.periodEnd,
+      kwh: ext.kwh, amountBefore: ext.amountBefore, vatAmount: ext.vatAmount,
+      invoiceNo: ext.invoiceNo, totalAmount: ext.totalAmount
+    });
+
+    // 7) Append dòng (không thay header / không tạo cột mới)
+    XLSX.utils.sheet_add_aoa(ws, [newRow], {origin: -1});
+
+    // 8) Lưu workbook
+    filledWb = wb;
+    el('btnDownload').disabled = false;
+    results.textContent += '\n\n✅ Đã thêm 1 dòng vào sheet import (giữ nguyên tiêu đề cột).';
+  }catch(err){
+    console.error(err);
+    results.textContent = 'Lỗi: '+err.message;
   }
+});
 
-  el('btnProcess').addEventListener('click', async () => {
-    try {
-      const pdfFile = el('pdfFile').files[0];
-      const xlsxFile = el('xlsxFile').files[0];
-      if (!pdfFile || !xlsxFile) { alert('Vui lòng chọn cả hóa đơn PDF và file mẫu Excel.'); return; }
-      results.textContent = 'Đang đọc PDF…';
-      const text = await readPdfText(pdfFile);
-      extracted = extractInvoiceFields(text);
-      show(extracted);
-      results.textContent += '\n\nĐang đọc file mẫu Excel…';
-      const data = await xlsxFile.arrayBuffer();
-      workbook = XLSX.read(data, { type: 'array' });
-      results.textContent += '\n\nĐang ghi dữ liệu…';
-      filledWb = appendToTemplateAndBuild(extracted, workbook);
-      el('btnDownload').disabled = false;
-      results.textContent += '\n\n✅ Hoàn tất. Bấm "Tải Excel đã điền".';
-    } catch (err) {
-      console.error(err);
-      results.innerHTML = `<span class="err">Lỗi: ${err.message}</span>`;
-    }
-  });
+el('btnDownload').addEventListener('click', ()=>{
+  if(!filledWb) return;
+  const wbout = XLSX.write(filledWb, {bookType:'xlsx', type:'array'});
+  const blob = new Blob([wbout], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `Mau_TH_filled_${Date.now()}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
 
-  el('btnDownload').addEventListener('click', () => {
-    if (!filledWb) return;
-    const wbout = XLSX.write(filledWb, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `Mau_TH_filled_${Date.now()}.xlsx`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  });
-
-  el('btnReset').addEventListener('click', () => {
-    extracted = null; workbook = null; filledWb = null; results.textContent = 'Chưa có dữ liệu…';
-    el('btnDownload').disabled = true;
-    el('pdfFile').value = ''; el('xlsxFile').value = '';
-  });
+el('btnReset').addEventListener('click', ()=>{
+  filledWb = null; results.textContent = 'Chưa có dữ liệu…';
+  el('btnDownload').disabled = true; el('pdfFile').value=''; el('xlsxFile').value='';
+});
 </script>
 </body>
 </html>
