@@ -18,8 +18,10 @@
     .muted{color:#6b7280}.small{font-size:12px}.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
     pre{background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:10px;white-space:pre-wrap}
   </style>
+  <!-- PDF.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
   <script>pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';</script>
+  <!-- SheetJS -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -60,7 +62,7 @@
 
 <section class="card">
   <h2 style="font-size:18px;margin-top:0">Tải file Excel đã điền</h2>
-  <div class="small muted">Sheet <span class="mono">import</span> giữ nguyên tiêu đề, chỉ <b>append</b> 1 dòng đúng thứ tự cột.</div>
+  <div class="small muted">Giữ nguyên tiêu đề sheet <span class="mono">import</span>, chỉ <b>append</b> 1 dòng đúng thứ tự cột.</div>
   <div class="row">
     <div></div>
     <button class="btn" id="btnDownload" disabled>Tải Excel đã điền</button>
@@ -74,7 +76,6 @@ const results = el('results');
 const onlyDigits = s => (s||'').replace(/[^\d]/g,'');
 const vnNumToInt = s => { const d = onlyDigits(s); return d?parseInt(d,10):null; };
 
-// chuẩn hóa: bỏ dấu, gộp khoảng trắng, lower-case
 function stripDiacritics(s){ return s.normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
 const norm = s => stripDiacritics(String(s==null?'':s))
   .replace(/\r?\n/g,' ')
@@ -84,6 +85,7 @@ const norm = s => stripDiacritics(String(s==null?'':s))
 
 function show(o){ results.textContent = (typeof o==='string')?o:JSON.stringify(o,null,2); }
 
+// ---- PDF ----
 async function readPdfText(file){
   const uint8 = new Uint8Array(await file.arrayBuffer());
   const pdf = await pdfjsLib.getDocument({data:uint8}).promise;
@@ -96,52 +98,53 @@ async function readPdfText(file){
   return all;
 }
 
+// ---- Robust extract: chịu xuống dòng/khoảng trắng, cả dấu : và ： ----
 function extractInvoiceFields(text){
   const out = {};
-  let m;
+  const grab = (re) => { const m = text.match(re); return m ? m[1].replace(/\s+/g,' ').trim() : null; };
+  const num = (s) => s ? parseInt(s.replace(/[^\d]/g,''),10) : null;
 
-  m = text.match(/Số\s*\(No\)\s*:\s*([0-9]+)/i); out.invoiceNo = m?m[1]:null;
-  m = text.match(/Mã\s*khách\s*hàng.*?:\s*([A-Z0-9]+)/i); out.customerCode = m?m[1]:null;
+  // Số hóa đơn
+  out.invoiceNo    = grab(/Số\s*\(No\)\s*[:：]\s*([0-9]+)/i);
 
-  m = text.match(/từ ngày\s*([0-9]{2}\/[0-9]{2}\/[0-9]{4}).*?đến ngày\s*([0-9]{2}\/[0-9]{2}\/[0-9]{4})/is);
-  if(m){
-    out.periodStart = m[1];
-    out.periodEnd   = m[2];
-    out.monthCode   = parseInt(m[2].slice(6,10)+m[2].slice(3,5),10); // yyyyMM (number)
+  // Mã khách hàng
+  out.customerCode = grab(/Mã\s*khách\s*hàng[\s\S]{0,60}?[:：]\s*([A-Z0-9]+)/i);
+
+  // Kỳ tính
+  const mPer = text.match(/từ\s*ngày\s*([0-9]{2}\/[0-9]{2}\/[0-9]{4})[\s\S]{0,80}?đến\s*ngày\s*([0-9]{2}\/[0-9]{2}\/[0-9]{4})/i);
+  if (mPer){
+    out.periodStart = mPer[1];
+    out.periodEnd   = mPer[2];
+    out.monthCode   = parseInt(out.periodEnd.slice(6,10)+out.periodEnd.slice(3,5),10); // yyyyMM
   }
 
-  m = text.match(/kWh\s*([0-9\.,]+)/i) || text.match(/([0-9\.,]+)\s*kWh/i);
-  if(m) out.kwh = vnNumToInt(m[1]);
+  // kWh
+  let mk = text.match(/kWh\s*([0-9\.,]+)/i) || text.match(/([0-9\.,]+)\s*kWh/i);
+  out.kwh = mk ? num(mk[1]) : null;
 
-  m = text.match(/Cộng tiền hàng.*?:\s*([0-9\.,]+)/i);
-  if(m) out.amountBefore = vnNumToInt(m[1]);
-
-  m = text.match(/Tiền thuế GTGT.*?:\s*([0-9\.,]+)/i);
-  if(m) out.vatAmount = vnNumToInt(m[1]);
-
-  m = text.match(/Tổng cộng tiền thanh toán.*?:\s*([0-9\.,]+)/i);
-  if(m) out.totalAmount = vnNumToInt(m[1]);
+  // Các khoản tiền
+  out.amountBefore = num(grab(/Cộng\s*tiền\s*hàng[\s\S]{0,60}?[:：]\s*([0-9\.,]+)/i));
+  out.vatAmount    = num(grab(/Tiền\s*thuế\s*GTGT[\s\S]{0,60}?[:：]\s*([0-9\.,]+)/i));
+  out.totalAmount  = num(grab(/Tổng\s*cộng\s*tiền\s*thanh\s*toán[\s\S]{0,60}?[:：]\s*([0-9\.,]+)/i));
 
   return out;
 }
 
-// tìm cột theo alias & từ khóa (fuzzy)
+// ---- Map header (fuzzy, bỏ dấu, chấp nhận alias) ----
 function findIndexByAliases(header, aliases){
   const nh = header.map(h=>norm(h));
   const al = aliases.map(a=>norm(a));
-  // 1) exact
+  // exact
   for(let i=0;i<nh.length;i++) for(const a of al) if(nh[i]===a) return i;
-  // 2) header contains alias
+  // header contains alias
   for(let i=0;i<nh.length;i++) for(const a of al) if(nh[i].includes(a)) return i;
-  // 3) alias contains header (ít gặp)
+  // alias contains header
   for(let i=0;i<nh.length;i++) for(const a of al) if(a.includes(nh[i])) return i;
   return -1;
 }
 
 function buildColMap(header){
-  const map = {};
-  const H = header;
-
+  const H = header, map = {};
   map.ma_tinh   = findIndexByAliases(H, ['Mã tỉnh','Ma tinh']);
   map.ma_thang  = findIndexByAliases(H, ['Mã tháng (yyyyMM)','Ma thang (yyyyMM)','Mã tháng']);
   map.ky        = findIndexByAliases(H, ['Kỳ','Ky']);
@@ -161,13 +164,12 @@ function buildColMap(header){
     'Ngày cuối kỳ'
   ]);
 
-  map.tong_chi_so    = findIndexByAliases(H, ['Tổng chỉ số','Tong chi so']);
-  map.so_tien        = findIndexByAliases(H, ['Số tiền','So tien']);
-  map.thue_vat       = findIndexByAliases(H, ['Thuế VAT','Thue VAT']);
-  map.so_hoa_don     = findIndexByAliases(H, ['Số hóa đơn','So hoa don']);
-  map.so_tien_du_kien= findIndexByAliases(H, ['Số tiền dự kiến','So tien du kien','Số tiền dự']);
-  map.ghi_chu        = findIndexByAliases(H, ['Ghi chú','Ghi chu']);
-
+  map.tong_chi_so     = findIndexByAliases(H, ['Tổng chỉ số','Tong chi so']);
+  map.so_tien         = findIndexByAliases(H, ['Số tiền','So tien']);
+  map.thue_vat        = findIndexByAliases(H, ['Thuế VAT','Thue VAT']);
+  map.so_hoa_don      = findIndexByAliases(H, ['Số hóa đơn','So hoa don']);
+  map.so_tien_du_kien = findIndexByAliases(H, ['Số tiền dự kiến','So tien du kien','Số tiền dự']);
+  map.ghi_chu         = findIndexByAliases(H, ['Ghi chú','Ghi chu']);
   return map;
 }
 
@@ -205,12 +207,12 @@ el('btnProcess').addEventListener('click', async () => {
     const text = await readPdfText(pdfFile);
     const ext = extractInvoiceFields(text);
 
-    // 2) CSHT: lấy đúng 3 phần đầu của tên file
-    const base = pdfFile.name.replace(/\.[^.]+$/,''); // bỏ .pdf
+    // 2) CSHT: lấy đúng 3 phần đầu tên file (CSHT_YBI_00014_07-2025.pdf -> CSHT_YBI_00014)
+    const base = pdfFile.name.replace(/\.[^.]+$/,'');
     const parts = base.split('_');
     ext.csht = (parts.length>=3) ? parts.slice(0,3).join('_') : base;
 
-    // 3) Form options
+    // 3) Tham số form
     ext.maTinh = el('maTinh').value || 'YBI';
     ext.ky     = parseInt(el('ky').value||'1',10);
 
@@ -225,10 +227,10 @@ el('btnProcess').addEventListener('click', async () => {
     if(aoa.length===0) throw new Error('Sheet trống, không có header.');
     const header = aoa[0];
 
-    // log header thực tế
+    // Log nhanh để kiểm tra
     show({extracted: ext, header});
 
-    // 5) Map cột (fuzzy) và tạo dòng mới
+    // 5) Map cột & tạo dòng mới
     const colMap = buildColMap(header);
     const newRow = buildRow(header, colMap, {
       maTinh: ext.maTinh, monthCode: ext.monthCode, ky: ext.ky, csht: ext.csht,
@@ -237,10 +239,9 @@ el('btnProcess').addEventListener('click', async () => {
       invoiceNo: ext.invoiceNo, totalAmount: ext.totalAmount
     });
 
-    // 6) Append dòng (không động vào header)
+    // 6) Append dòng (không động vào header/cột)
     XLSX.utils.sheet_add_aoa(ws, [newRow], {origin: -1});
     filledWb = wb;
-
     el('btnDownload').disabled = false;
     results.textContent += '\n\n✅ Đã thêm 1 dòng vào sheet import.';
   }catch(err){
